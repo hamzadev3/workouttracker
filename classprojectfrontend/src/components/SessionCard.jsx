@@ -1,4 +1,3 @@
-
 export default function SessionCard({ session, onOpen, onDelete }) {
   return (
     <div className="rounded-xl bg-slate-800/50 backdrop-blur p-6 flex justify-between shadow-md">
