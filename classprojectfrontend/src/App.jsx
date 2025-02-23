@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import WorkoutForm from "./components/WorkoutForm";
 import WorkoutList from "./components/WorkoutList";
@@ -78,8 +77,8 @@ export default function App() {
           onClose={() => setOpenSess(null)}
         />
       )}
-    </div>
-  );
+</div>
+);
 
 
-export default App; 
+export default App;
