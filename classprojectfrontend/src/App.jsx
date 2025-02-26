@@ -1,27 +1,17 @@
-import { useEffect, useState } from "react";
-import WorkoutForm from "./components/WorkoutForm";
-import WorkoutList from "./components/WorkoutList";
-import { fetchWorkouts, deleteWorkout } from "./api";
-import { getSessions, deleteSession } from "./api";
-import SessionCard from "./components/SessionCard";
-import NewSessionModal from "./components/NewSessionModal";
-import SessionPage from "./components/SessionPage";
+// src/App.jsx
+import { useEffect, useState } from 'react';
+import { getSessions, createSession, deleteSession } from './api';
+import SessionCard from './components/SessionCard';
+import NewSessionModal from './components/NewSessionModal';
+import SessionPage from './components/SessionPage';
 
-function App() {
-  const [workouts, setWorkouts] = useState([]);
 export default function App() {
   const [sessions, setSessions] = useState([]);
-  const [showNew,   setShowNew]   = useState(false);
-  const [openSess,  setOpenSess]  = useState(null);
+  const [showNew, setShowNew] = useState(false);
+  const [openSess, setOpenSess] = useState(null);
 
-  useEffect(() => {
-    fetchWorkouts().then(setWorkouts);
-  }, []);
   useEffect(() => { getSessions().then(setSessions); }, []);
 
-  const handleAdd = (newWorkout) => {
-    setWorkouts([newWorkout, ...workouts]);
-  };
   return (
     <div className="container mx-auto px-4 py-10">
       <header className="flex items-center justify-between mb-8">
@@ -34,10 +24,6 @@ export default function App() {
         </button>
       </header>
 
-  const handleDelete = async (id) => {
-    await deleteWorkout(id);
-    setWorkouts(workouts.filter(w => w._id !== id));
-  };
       <div className="space-y-4">
         {sessions.map(s => (
           <SessionCard
@@ -55,14 +41,13 @@ export default function App() {
         )}
       </div>
 
-  return (
-    <div className="p-6 max-w-xl mx-auto">
-      <h1 className="text-3xl font-bold text-center mb-6">🏋️ Workout Tracker</h1>
-      <WorkoutForm onAdd={handleAdd} />
-      <WorkoutList workouts={workouts} onDelete={handleDelete} />
       {showNew && (
         <NewSessionModal
-          onCreate={s => setSessions([s, ...sessions])}
+          onCreate={async (name, date) => {
+            const created = await createSession({ name, date });
+            setSessions([created, ...sessions]);
+            setShowNew(false);
+          }}
           onClose={() => setShowNew(false)}
         />
       )}
@@ -77,8 +62,6 @@ export default function App() {
           onClose={() => setOpenSess(null)}
         />
       )}
-</div>
-);
-
-
-export default App;
+    </div>
+  );
+}
