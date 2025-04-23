@@ -1,15 +1,19 @@
-// backend/routes/sessions.js
 const express  = require("express");
 const Session  = require("../models/Session");
 
 const router = express.Router();
 
-/* GET /api/sessions */
+/* ──────────────────────────────────────────
+   GET  /api/sessions      (public read-only)
+   Query: ?userId=UID  → returns that user’s sessions
+          (no userId) → returns sessions with no userId (demo/public)
+   ──────────────────────────────────────────*/
 router.get("/", async (req, res) => {
   try {
     const { userId } = req.query;
-    const filter = userId ? { $or: [ { userId }, { isPublic: true } ] }
-                          : { isPublic: true };
+    const filter = userId
+      ? { $or: [{ userId }, { isPublic: true }] }
+      : { isPublic: true };
     const sessions = await Session.find(filter).sort({ date: -1 });
     res.json(sessions);
   } catch (e) {
@@ -17,21 +21,18 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* POST /api/sessions */
+/* ──────────────────────────────────────────
+   POST /api/sessions
+   Body: { name, date?, userId }   ← userId REQUIRED
+   ──────────────────────────────────────────*/
 router.post("/", async (req, res) => {
   const { name, date, userId, userName, isPublic = true } = req.body;
   if (!userId) return res.status(401).json({ error: "Missing userId" });
   try {
     const session = await Session.create({
-      name,
-      date,
-      userId,
-      userName,
-      isPublic,
-      exercises: []
-    });
+      name, date, userId, userName, isPublic, exercises: [] });
     res.status(201).json(session);
-  } catch (e) {
+  }  catch (e) {
     res.status(400).json({ error: e.message });
   }
 });
