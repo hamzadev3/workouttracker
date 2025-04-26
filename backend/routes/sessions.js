@@ -1,3 +1,4 @@
+// notes/2025-04-29-14-pagination/backend/routes/sessions.js
 const express  = require("express");
 const Session  = require("../models/Session");
 const { requireUser } = require("../middleware/auth");
@@ -5,9 +6,12 @@ const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const { userId } = req.query;
-    const filter = userId ? { $or: [{ userId }, { isPublic: true }] } : { isPublic: true };
-    const sessions = await Session.find(filter).sort({ date: -1 });
+    const { userId, before, limit } = req.query;
+    const lmt = Math.min(Number(limit) || 10, 50);
+    const base = userId ? { $or: [{ userId }, { isPublic: true }] } : { isPublic: true };
+    const dateFilter = before ? { date: { $lt: new Date(before) } } : {};
+    const filter = { ...base, ...dateFilter };
+    const sessions = await Session.find(filter).sort({ date: -1 }).limit(lmt);
     res.json(sessions);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -26,7 +30,6 @@ router.delete("/:id", requireUser, async (req, res) => {
   if (!s) return res.status(404).end();
   if (s.userId !== req.userId) return res.status(403).json({ error: "Not owner" });
   await s.deleteOne();
-  // Return a little payload so FE can optimistically reconcile if needed
   res.json({ ok: true, deletedId: req.params.id });
 });
 
