@@ -1,15 +1,19 @@
-// notes/2025-04-24-09-cleanup-and-env/backend/server.js
+// notes/2025-04-30-15-backend-headers/backend/server.js
 const express  = require('express');
 const mongoose = require('mongoose');
 const cors     = require('cors');
+const helmet   = require('helmet');
 require('dotenv').config();
 
 const sessionRoutes = require('./routes/sessions');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.use(helmet());
 
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+app.use(cors({ origin: CORS_ORIGIN }));
+
+app.use(express.json());
 app.use('/api/sessions', sessionRoutes);
 
 const PORT = process.env.PORT || 8080;
