@@ -14,6 +14,11 @@ app.use(morgan('dev'));
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
 
+// --- swagger ---
+const { openapi } = require('./docs/openapi');
+const swaggerUi = require('swagger-ui-express');
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
+
 // tiny, safe default
 app.use(rateLimit({ windowMs: 60_000, max: 120 }));
 
