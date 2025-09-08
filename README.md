@@ -1,4 +1,4 @@
-## Prereqs: Node 18+, Docker (optional), Mongo URI
+## Prereqs: Node 18+, Mongo URI
 
 ## Env vars (API MONGO_URI, PORT, CORS_ORIGIN; Web VITE_API_URL, Firebase keys)
 
