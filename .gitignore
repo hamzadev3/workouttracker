@@ -1,9 +1,13 @@
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# Node
+# Node / JS
 node_modules/
 npm-debug.log*
+dist/
+coverage/
 
 # Env / secrets
 .env
