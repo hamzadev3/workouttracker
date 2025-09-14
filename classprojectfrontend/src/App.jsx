@@ -53,17 +53,27 @@ export default function App() {
       <header className="flex items-center justify-between mb-8">
         <h1 className="text-4xl font-extrabold tracking-tight">🏋️ Workout Tracker</h1>
         <div className="space-x-3">
-          <button
-            onClick={()=> user ? setShowNew(true) : setAuth(true)}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold hover:bg-indigo-500">
-            New Session
-          </button>
-          {user ? (
-            <button onClick={logout} className="text-sm underline">Sign out</button>
-          ) : (
-            <button onClick={()=>setAuth(true)} className="text-sm underline">Sign in</button>
-          )}
-        </div>
+  {user ? (
+    <>
+      <button
+        onClick={()=> setShowNew(true)}
+        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold hover:bg-indigo-500">
+        New Session
+      </button>
+      <button onClick={logout} className="text-sm underline">Sign out</button>
+    </>
+  ) : (
+    <>
+      <span className="text-sm text-slate-300 hidden sm:inline">
+        Browsing public feed — sign in to create your own.
+      </span>
+      <button onClick={()=>setAuth(true)} className="rounded-lg border px-3 py-2 text-sm">
+        Sign in
+      </button>
+    </>
+  )}
+</div>
+
       </header>
 
       {error && <p className="text-rose-300 mb-4 text-sm">{error}</p>}
