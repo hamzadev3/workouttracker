@@ -118,4 +118,4 @@ components= {
   }
 
 
-module.exports = { openapi };
+module.exports = openapi;
