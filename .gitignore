@@ -1,20 +1,17 @@
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Node / JS
+# Node / tooling
 node_modules/
-npm-debug.log*
 dist/
 coverage/
+.playwright/
+.vscode/
+.DS_Store
+Thumbs.db
+._*
+.turbo/
+.next/
+*.log
 
-# Env / secrets
+# Envs (use examples only)
 .env
 .env.local
 .env.*.local
-
-# Editors / tooling
-.vscode/
-.idea/
-*.swp
