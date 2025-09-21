@@ -1,28 +1,28 @@
-// apps/web/src/api.js
 import { auth } from "./firebase";
 const BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:8080/api").replace(/\/$/, "");
 
 async function idToken() {
   const u = auth.currentUser;
-  return u ? await u.getIdToken() : "";
+  if (!u) return "";
+  return await u.getIdToken();
 }
 
-export async function listSessions({ userId, before, limit = 10 } = {}) {
-  const qs = new URLSearchParams();
-  if (userId) qs.set("userId", userId);
-  if (before) qs.set("before", before);
-  qs.set("limit", String(limit));
-  const r = await fetch(`${BASE}/sessions?${qs}`);
-  if (!r.ok) throw new Error("Failed to fetch sessions");
+export async function getSessions(uid) {
+  const url = uid ? `${BASE}/sessions?userId=${uid}` : `${BASE}/sessions`;
+  const r   = await fetch(url);
+  if (!r.ok) throw new Error((await r.json()).error || "Failed to fetch sessions");
   return r.json();
 }
 
 export async function createSession({ name, date, isPublic }) {
-  const u = auth.currentUser;
-  if (!u) throw new Error("Not signed in");
-  const body = { name, date, isPublic, userId: u.uid, userName: u.email.split("@")[0] };
+  if (!auth.currentUser) throw new Error("Not signed in");
+  const body = {
+    name, date, isPublic,
+    userId:   auth.currentUser.uid,
+    userName: auth.currentUser.email.split("@")[0]
+  };
   const r = await fetch(`${BASE}/sessions`, {
-    method: "POST",
+    method:  "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${await idToken()}`
@@ -39,14 +39,14 @@ export async function deleteSession(id) {
     method: "DELETE",
     headers: { "Authorization": `Bearer ${await idToken()}` }
   });
-  if (!r.ok) throw new Error((await r.json()).error || "Failed to delete session");
-  try { return await r.json(); } catch { return { ok: true, deletedId: id }; }
+  if (!r.ok) throw new Error("Failed to delete session");
+  return r.json();
 }
 
 export async function addExercise(sessionId, data) {
   if (!auth.currentUser) throw new Error("Not signed in");
   const r = await fetch(`${BASE}/sessions/${sessionId}/exercise`, {
-    method: "POST",
+    method:  "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${await idToken()}`
