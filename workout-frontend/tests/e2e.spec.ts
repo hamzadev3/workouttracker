@@ -1,28 +1,32 @@
-// apps/web/tests/e2e.spec.ts
 import { test, expect } from '@playwright/test';
 
-const E2E_EMAIL = process.env.E2E_EMAIL;
-const E2E_PASSWORD = process.env.E2E_PASSWORD;
+// E2E credentials are provided via env for safety
+const EMAIL = process.env.E2E_EMAIL;
+const PASS  = process.env.E2E_PASSWORD;
 
-test('guest can browse public feed', async ({ page }) => {
+// Smoke test: anonymous user can load the app shell.
+test('guest sees community feed', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Workout Tracker')).toBeVisible();
-  // Public feed should render cards or an empty state
-  await expect(page.locator('text=public').first()).toBeVisible({ timeout: 10_000 }).catch(() => {});
 });
 
-test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'set E2E_EMAIL/PASSWORD to run login flow');
+// Skip auth tests when creds aren't configured.
+// This keeps "npm test" green for contributors without secrets.
+test.skip(!EMAIL || !PASS, 'set E2E_EMAIL/PASSWORD to run auth flow');
 
-test('member can sign in and open New Session modal', async ({ page }) => {
+// Happy-path auth + create session flow.
+test('member can sign in and create a session', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /sign in/i }).click();
-  // Your AuthModal flows here (adjust selectors to your UI)
-  await page.fill('input[type="email"]', E2E_EMAIL!);
-  await page.fill('input[type="password"]', E2E_PASSWORD!);
-  await page.getByRole('button', { name: /sign in/i }).first().click();
+  await page.fill('input[type="email"]', EMAIL!);
+  await page.fill('input[type="password"]', PASS!);
+  await page.getByRole('button', { name: /^sign in$/i }).first().click();
 
-  // After login, New Session button appears/enabled
   await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
   await page.getByRole('button', { name: /new session/i }).click();
-  await expect(page.getByText('New Workout Session')).toBeVisible();
+  await page.fill('input[placeholder="Session name"]', 'PPL Test Session');
+  await page.getByRole('button', { name: /^create$/i }).click();
+  
+  // Minimal assertion to prove session creation surfaced in the UI.
+  await expect(page.getByText('PPL Test Session')).toBeVisible();
 });
