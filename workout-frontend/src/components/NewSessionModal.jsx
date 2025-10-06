@@ -2,12 +2,22 @@ import { useState } from "react";
 import { createSession } from "../api";
 import toast from "react-hot-toast";
 
+/**
+ * NewSessionModal
+ * Creates a new workout session via API.
+ * Props:
+ *  - onCreate: (session) => void  // optimistic list update in parent
+ *  - onClose:  () => void         // close modal
+ */
+
 export default function NewSessionModal({ onCreate, onClose }) {
+  // Keep inputs controlled; default public to encourage community sharing.
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [isPublic, setPub] = useState(true);
   const [displayName, setDN] = useState("");
 
+  // Single submit handler with early validation for UX.
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Session name required");
@@ -17,6 +27,7 @@ export default function NewSessionModal({ onCreate, onClose }) {
       toast.success("Session created");
       onClose();
     } catch {
+      // Avoid leaking server internals; concise user-friendly message.
       toast.error("Error creating session");
     }
   };

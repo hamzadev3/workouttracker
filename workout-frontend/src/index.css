@@ -1,7 +1,9 @@
+/* Tailwind base layers */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* App-level dark theme & scroll behavior */
 html { background-color: #0f172a; overscroll-behavior-y: none; }
 body { overscroll-behavior-y: none; }
 :root { color-scheme: dark; }

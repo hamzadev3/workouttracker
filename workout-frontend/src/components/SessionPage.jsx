@@ -3,15 +3,30 @@ import { useAuth } from "../AuthContext";
 import toast from "react-hot-toast";
 import { addExercise, deleteExercise, updateExercise } from "../api";
 
+/**
+ * SessionPage
+ * Full-screen modal for viewing and editing a session.
+ * Props:
+ *  - session:  server model with exercises[]
+ *  - onUpdate: (updatedSession) => void // parent keeps single source of truth
+ *  - onClose:  () => void
+ */
+
 export default function SessionPage({ session, onUpdate, onClose }) {
   const { user } = useAuth();
   const owner = user && user.uid === session.userId;
 
+  // Controlled form fields for adding a new exercise.
   const [title, setTitle] = useState("");
   const [sets,  setSets]  = useState("");
   const [reps,  setReps]  = useState("");
   const [weight,setWt]    = useState("");
 
+  /**
+   * Add exercise flow:
+   * - Validate numbers > 0 for sets/reps
+   * - Let server return canon model for consistency
+   */
   const submit = async (e) => {
     e.preventDefault();
     if (!+sets || !+reps) return toast.error("Sets & reps must be > 0");
@@ -19,6 +34,7 @@ export default function SessionPage({ session, onUpdate, onClose }) {
       const upd = await addExercise(session._id, { title, sets, reps, weight });
       onUpdate(upd);
       toast.success("Exercise added");
+      // Reset fields for quick consecutive entries
       setTitle(""); setSets(""); setReps(""); setWt("");
     } catch { toast.error("Error adding exercise"); }
   };
@@ -39,82 +55,96 @@ export default function SessionPage({ session, onUpdate, onClose }) {
           </form>
         )}
 
-        <ul className="space-y-2">
-          {session.exercises.map((ex, i) => (
-            <li key={i} className="flex justify-between rounded bg-slate-700/60 px-3 py-2 text-sm">
-              <span className="font-medium">{ex.title}</span>
-              <span className="flex items-center gap-3 text-slate-300">
-                <span className="inline-flex items-center gap-2">
-                  {owner && (
-                    <button
-                      aria-label="decrease sets"
-                      className="h-6 w-6 rounded bg-slate-800/70 text-xs leading-6 hover:bg-slate-700"
-                      onClick={async () => {
-                        const next = Math.max(1, Number(ex.sets || 1) - 1);
-                        const optimistic = {
-                          ...session,
-                          exercises: session.exercises.map((e, idx) =>
-                            idx === i ? { ...e, sets: next } : e
-                          ),
-                        };
-                        onUpdate(optimistic);
-                        try {
-                          const server = await updateExercise(session._id, i, { sets: next });
-                          onUpdate(server);
-                        } catch (err) {
-                          toast.error(`Couldn’t update sets: ${err.message}`);
-                          onUpdate(session);
-                        }
-                      }}
-                    >−</button>
-                  )}
+<ul className="space-y-2">
+  {session.exercises.map((ex, i) => (
+    <li key={i} className="flex justify-between rounded bg-slate-700/60 px-3 py-2 text-sm">
+      <span className="font-medium">{ex.title}</span>
 
-                  <span className="tabular-nums">{ex.sets}×{ex.reps}</span>
+      <span className="flex items-center gap-3 text-slate-300">
+        <span className="inline-flex items-center gap-2">
+          {owner && (
+            <button
+              aria-label="decrease sets"
+              className="h-6 w-6 rounded bg-slate-800/70 text-xs leading-6 hover:bg-slate-700"
+              onClick={async () => {
+                const next = Math.max(1, Number(ex.sets || 1) - 1);
 
-                  {owner && (
-                    <button
-                      aria-label="increase sets"
-                      className="h-6 w-6 rounded bg-slate-800/70 text-xs leading-6 hover:bg-slate-700"
-                      onClick={async () => {
-                        const next = Number(ex.sets || 0) + 1;
-                        const optimistic = {
-                          ...session,
-                          exercises: session.exercises.map((e, idx) =>
-                            idx === i ? { ...e, sets: next } : e
-                          ),
-                        };
-                        onUpdate(optimistic);
-                        try {
-                          const server = await updateExercise(session._id, i, { sets: next });
-                          onUpdate(server);
-                        } catch (err) {
-                          toast.error(`Couldn’t update sets: ${err.message}`);
-                          onUpdate(session);
-                        }
-                      }}
-                    >+</button>
-                  )}
-                </span>
+                // optimistic UI
+                const optimistic = {
+                  ...session,
+                  exercises: session.exercises.map((e, idx) =>
+                    idx === i ? { ...e, sets: next } : e
+                  ),
+                };
+                onUpdate(optimistic);
 
-                <span>@ {ex.weight} lbs</span>
+                try {
+                  const server = await updateExercise(session._id, i, { sets: next });
+                  onUpdate(server); // ensure we’re in sync
+                } catch (err) {
+                  toast.error(`Couldn’t update sets: ${err.message}`);
+                  onUpdate(session); // rollback
+                }
+              }}
+            >
+              −
+            </button>
+          )}
 
-                {owner && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        const upd = await deleteExercise(session._id, i);
-                        onUpdate(upd);
-                      } catch (err) {
-                        toast.error(`Delete failed: ${err.message}`);
-                      }
-                    }}
-                    className="text-rose-400 hover:text-rose-300 text-xs"
-                  >✕</button>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
+          <span className="tabular-nums">{ex.sets}×{ex.reps}</span>
+
+          {owner && (
+            <button
+              aria-label="increase sets"
+              className="h-6 w-6 rounded bg-slate-800/70 text-xs leading-6 hover:bg-slate-700"
+              onClick={async () => {
+                const next = Number(ex.sets || 0) + 1;
+
+                const optimistic = {
+                  ...session,
+                  exercises: session.exercises.map((e, idx) =>
+                    idx === i ? { ...e, sets: next } : e
+                  ),
+                };
+                onUpdate(optimistic);
+
+                try {
+                  const server = await updateExercise(session._id, i, { sets: next });
+                  onUpdate(server);
+                } catch (err) {
+                  toast.error(`Couldn’t update sets: ${err.message}`);
+                  onUpdate(session);
+                }
+              }}
+            >
+              +
+            </button>
+          )}
+        </span>
+
+        {/* Lightweight units display; consider metric toggle in future */}
+        <span>@ {ex.weight} lbs</span>
+
+        {owner && (
+          <button
+            onClick={async () => {
+              try {
+                const upd = await deleteExercise(session._id, i);
+                onUpdate(upd);
+              } catch (err) {
+                toast.error(`Delete failed: ${err.message}`);
+              }
+            }}
+            className="text-rose-400 hover:text-rose-300 text-xs"
+          >
+            ✕
+          </button>
+        )}
+      </span>
+    </li>
+  ))}
+</ul>
+
       </div>
     </div>
   );

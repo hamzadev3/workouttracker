@@ -1,6 +1,9 @@
-import mongoose from 'mongoose';
-const Workout = new mongoose.Schema({
-  title: { type: String, required: true },
-  userId: String
-}, { timestamps: true });
-export default mongoose.model('Workout', Workout);
+const mongoose = require("mongoose");
+
+// Workout: generic single exercise record
+const workoutSchema = new mongoose.Schema(
+  { title: String, sets: Number, reps: Number, weight: Number },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("Workout", workoutSchema);

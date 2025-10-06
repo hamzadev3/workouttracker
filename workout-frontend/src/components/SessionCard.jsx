@@ -1,3 +1,13 @@
+/**
+ * SessionCard
+ * Renders a single session summary card with open/delete actions.
+ * Props:
+ *  - session: { _id, name, date, exercises:[], userId, userName? }
+ *  - onOpen:   () => void
+ *  - onDelete: () => void
+ *
+ */
+
 export default function SessionCard({ session, onOpen, onDelete }) {
   const owner = session.userId === localStorage.uid;
   return (

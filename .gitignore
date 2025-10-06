@@ -1,17 +1,22 @@
-# Node / tooling
-node_modules/
-dist/
-coverage/
-.playwright/
-.vscode/
+# macOS
 .DS_Store
-Thumbs.db
-._*
-.turbo/
-.next/
-*.log
 
-# Envs (use examples only)
+# Node
+node_modules/
+npm-debug.log*
+
+# Env / secrets
 .env
 .env.local
 .env.*.local
+
+# Editors / tooling
+.vscode/
+.idea/
+*.swp
+
+# Build / test outputs
+dist/
+coverage/
+playwright-report/
+.playwright/

@@ -4,8 +4,17 @@ import SessionCard     from "./components/SessionCard";
 import NewSessionModal from "./components/NewSessionModal";
 import SessionPage     from "./components/SessionPage";
 import AuthModal       from "./components/AuthModal";
+import Spinner         from "./components/Spinner";
 import { useAuth }     from "./AuthContext";
 import toast           from "react-hot-toast";
+
+/**
+ * App
+ * Top-level page shell. Handles:
+ * - switching tabs (Community vs My Workouts)
+ * - loading sessions for current tab
+ * - opening modals (auth, new session, session detail)
+ */
 
 // Lightweight demo filler when browsing as guest
 const demoSessions = [
@@ -22,6 +31,7 @@ export default function App() {
   const [showAuth, setA] = useState(false);
   const { user, logout } = useAuth();
 
+  // Load sessions whenever tab or auth state changes.
   useEffect(() => {
     const load = async () => {
       setL(true);
@@ -31,6 +41,7 @@ export default function App() {
           setS(await getMine(user.uid));
         } else {
           const data = await getCommunity(user?.uid);
+          // For anonymous users, show demo if community is empty.
           setS(data.length ? data : (!user ? demoSessions : []));
         }
       } catch { toast.error("Failed to load"); }
@@ -41,6 +52,8 @@ export default function App() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
+
+
       <header className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-extrabold tracking-tight">🏋️ Workout Tracker</h1>
         <div className="space-x-3">

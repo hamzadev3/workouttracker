@@ -1,9 +1,10 @@
-import request from 'supertest';
-import app from '../server.js';
-describe('health', () => {
-  it('returns ok', async () => {
-    const res = await request(app).get('/api/health');
+const request = require("supertest");
+const app = require("../server");
+
+describe("GET /health", () => {
+  it("returns ok: true", async () => {
+    const res = await request(app).get("/health");
     expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('ok', true);
+    expect(res.body).toEqual({ ok: true });
   });
 });
