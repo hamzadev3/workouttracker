@@ -1,9 +1,13 @@
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# Node
+# Node / JS
 node_modules/
 npm-debug.log*
+dist/
+coverage/
 
 # Env / secrets
 .env
@@ -14,9 +18,5 @@ npm-debug.log*
 .vscode/
 .idea/
 *.swp
-
-# Build / test outputs
-dist/
-coverage/
 playwright-report/
-.playwright/
+test-results/
