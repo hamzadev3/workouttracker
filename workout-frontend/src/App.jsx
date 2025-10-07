@@ -51,7 +51,7 @@ export default function App() {
   }, [tab, user]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10">
 
 
       <header className="flex items-center justify-between mb-6">
@@ -76,7 +76,7 @@ export default function App() {
                 onClick={() => user ? setTab("mine") : setA(true)}>My Workouts</button>
       </div>
 
-      {loading ? <p className="text-slate-400">Loading…</p> : (
+      {loading ? <Spinner /> : (
         <div className="space-y-4">
           {sessions.map(s => (
             <SessionCard key={s._id}

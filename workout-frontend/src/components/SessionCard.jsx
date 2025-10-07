@@ -11,7 +11,8 @@
 export default function SessionCard({ session, onOpen, onDelete }) {
   const owner = session.userId === localStorage.uid;
   return (
-    <div className="rounded-xl bg-slate-800/50 backdrop-blur p-6 flex justify-between shadow-md">
+    <div className="rounded-2xl bg-slate-800/60 backdrop-blur p-6 flex justify-between shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5">
+
       <div>
         <h3 className="text-lg font-semibold">{session.name}</h3>
         <p className="text-xs text-slate-400 mb-1">by {session.userName || "Anonymous"}</p>
