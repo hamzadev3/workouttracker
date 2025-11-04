@@ -1,195 +1,157 @@
-// workout-backend/scripts/seed.js
+// seed.js — wipe (optional) and seed realistic workout sessions without seed tags.
 // Usage:
-//   # Dry-run (prints sample, writes nothing):
-//   DRY_RUN=1 MONGO_URI="mongodb+srv://..." node workout-backend/scripts/seed.js
+//   MONGO_URI="mongodb://127.0.0.1:27017/workouts" node scripts/seed.js --weeks 6 --reset
+//   MONGO_URI="..." node scripts/seed.js --weeks 8         # just add data, no wipe
 //
-//   # Real seed to production DB (example values):
-//   MONGO_URI="mongodb+srv://USER:PASS@cluster.mongodb.net/app?retryWrites=true&w=majority" \
-//   SEED_TAG="fall2025" PEOPLE=12 WEEKS=6 START=2025-08-25 PER_WEEK=3 \
-//   node workout-backend/scripts/seed.js
-//
-// What it inserts:
-// - Collection: workouts
-// - Fields used by your frontend cards: name, date, exercises[], userId, userName, visibility
-// - Exercises use 5-lb step weights, reps 5–12, realistic bounds, small week-to-week variance
+// Options:
+//   --reset    : wipe domain collections first (sessions, workouts, programs if they exist)
+//   --weeks N  : generate N weeks of history ending today (default 6)
+//   --people N : number of personas (default 25)
 //
 // Notes:
-// - Idempotent by SEED_TAG: re-running removes the prior tag’s rows, then inserts fresh ones.
-// - Does NOT create auth users; it just sets userId/userName display for Community.
+//   - Writes ONLY to `sessions` collection (your UI reads these).
+//   - All session dates <= "now" (America/New_York); no future dates.
+//   - Four persona cohorts: real-name + PPL, real-name + bro-split, username + PPL, username + bro-split.
+//   - Progressive overload with mild variety and occasional stalls.
+//   - No seed tags; clean documents.
 
-require("dotenv").config();
 const mongoose = require("mongoose");
 
-// --- envs ---
-const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) {
-  console.error("❌ MONGO_URI is required");
-  process.exit(1);
-}
-const DRY_RUN  = process.env.DRY_RUN === "1";
-const SEED_TAG = process.env.SEED_TAG || "seed-default";
-const PEOPLE   = parseInt(process.env.PEOPLE || "8", 10);
-const WEEKS    = parseInt(process.env.WEEKS  || "4", 10);
-const PER_WEEK = parseInt(process.env.PER_WEEK || "3", 10);
-const START    = process.env.START ? new Date(`${process.env.START}T00:00:00.000Z`) : new Date();
-
-const names = [
-  "Alex","Jordan","Taylor","Casey","Sam","Riley","Morgan","Quinn",
-  "Jamie","Avery","Reese","Cameron","Drew","Harper","Finley","Dakota"
-];
-
-// Lazily load your Workout model if it exists; otherwise create a minimal one.
-let Workout;
-try {
-  Workout = require("../models/Workout");
-} catch {
-  const workoutSchema = new mongoose.Schema({
-    name: String,
-    date: Date,
-    visibility: { type: String, default: "public" },
-    userId: String,
-    userName: String,
-    exercises: [{
-      title: String,
-      sets: Number,
-      reps: Number,
-      weight: Number,
-      unit: { type: String, default: "lb" }
-    }],
-    meta: { seedTag: String },
-    createdAt: Date,
-    updatedAt: Date
-  }, { collection: "workouts" });
-  Workout = mongoose.model("Workout", workoutSchema);
-}
-
-// ---- helpers ----
-const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-const addDays = (d, n) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x; };
-
-const lifts = {
-  push: [
-    { title: "Barbell Bench Press",   base: 95,  rep: [5, 10] },
-    { title: "Overhead Press",        base: 65,  rep: [5, 10] },
-    { title: "Incline Dumbbell Press",base: 40,  rep: [8, 12] },
-    { title: "Triceps Pushdown",      base: 40,  rep: [8, 12], step: 5 },
-  ],
-  pull: [
-    { title: "Barbell Row",           base: 95,  rep: [6, 10] },
-    { title: "Lat Pulldown",          base: 70,  rep: [8, 12] },
-    { title: "Seated Cable Row",      base: 70,  rep: [8, 12] },
-    { title: "Dumbbell Curl",         base: 25,  rep: [8, 12] },
-  ],
-  legs: [
-    { title: "Back Squat",            base: 115, rep: [5, 10] },
-    { title: "Romanian Deadlift",     base: 95,  rep: [6, 10] },
-    { title: "Leg Press",             base: 180, rep: [8, 12], step: 10 },
-    { title: "Calf Raise",            base: 65,  rep: [10, 15] },
-  ]
+// ---------- CLI args ----------
+const args = new Set(process.argv.slice(2));
+const getArg = (flag, def = null) => {
+  for (const a of process.argv.slice(2)) {
+    const m = a.match(new RegExp(`^${flag}=(.+)$`));
+    if (m) return m[1];
+  }
+  return def;
 };
-const daySplit = ["push","pull","legs"];
+const WEEKS    = parseInt(getArg("--weeks", "6"), 10) || 6;
+const PEOPLE   = parseInt(getArg("--people", "25"), 10) || 25;
+const DO_RESET = args.has("--reset");
 
-function sessionDates(start, weeks, perWeek) {
-  const dates = [];
-  const total = weeks * 7;
-  for (let i = 0; i < total; i++) {
-    const d = addDays(start, i);
-    const dow = d.getUTCDay(); // 0..6
-    if (perWeek >= 3 && (dow === 1 || dow === 3 || dow === 5)) dates.push(d);      // Mon/Wed/Fri
-    else if (perWeek === 2 && (dow === 2 || dow === 5)) dates.push(d);             // Tue/Fri
-    else if (perWeek === 1 && dow === 3) dates.push(d);                            // Wed
-  }
-  return dates;
+// ---------- DB ----------
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) { console.error("MONGO_URI is required"); process.exit(1); }
+
+// ---------- Helpers ----------
+function addDays(d, n){ const x = new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
+function startOfWeek(d, weekStarts=1){ const x=new Date(d.getTime()); const day=x.getDay(); const diff=(day===0?7:day)-weekStarts; x.setDate(x.getDate()-diff); x.setHours(8,0,0,0); return x; }
+function clampNotFuture(dt){ const now=new Date(); return dt>now ? new Date(now.getFullYear(),now.getMonth(),now.getDate(),11,30,0,0) : dt; }
+function rndInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function rndChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function nyDateAtHourYmd(y,m,d,h=13,min=15){ return new Date(y,m,d,h,min,0,0); }
+
+// ---------- Personas ----------
+const REAL_NAMES = ["Alex Morgan","Taylor Reed","Sam Patel","Priya Shah","Diego Lopez","Elena Park","Reese Carter","Anaya Lee","Yuki Sato","Drew Kim","Theo Davis","Nora Khan"];
+const USERNAMES = ["milo.lifts","sofia.trains","aria_squats","ppl_fan","bro_split","yuki_ohp","nora.moves","samA","theo.dev","diego_dl","morgan.fitlog","reese_press","hamza.dev"];
+
+function makePersonas(total){
+  const half = Math.floor(total/2);
+  const real = REAL_NAMES.slice(0, Math.min(REAL_NAMES.length, half));
+  const users = USERNAMES.slice(0, total - real.length);
+  const splitHalf = (arr)=>{ const cut=Math.floor(arr.length/2); return [arr.slice(0,cut), arr.slice(cut)]; };
+  const [realPPL, realBRO] = splitHalf(real);
+  const [userPPL, userBRO] = splitHalf(users);
+  const tiers = ["beginner","intermediate","advanced"];
+  const persona = (name,prog)=>({ name, program:prog, tier:rndChoice(tiers) });
+  const list = [
+    ...realPPL.map(n=>persona(n,"PPL")),
+    ...realBRO.map(n=>persona(n,"BRO")),
+    ...userPPL.map(n=>persona(n,"PPL")),
+    ...userBRO.map(n=>persona(n,"BRO")),
+  ];
+  while (list.length < total) list.push(persona(rndChoice(USERNAMES), rndChoice(["PPL","BRO"])));
+  return list;
 }
 
-function buildExercises(block, weekIndex) {
-  const out = [];
-  for (const lift of lifts[block]) {
-    const setsCount = rand(3, 5);
-    const repMin = lift.rep[0], repMax = lift.rep[1];
-    const step = lift.step || 5;
-    const base = lift.base * (1 + weekIndex * 0.02); // ~2% up per week
-
-    for (let s = 0; s < setsCount; s++) {
-      // Human-ish noise: ±10% around base, then round to 5-lb steps.
-      const variance = (rand(-8, 10)) / 100;
-      let w = base * (1 + variance);
-
-      if (lift.title.includes("Dumbbell")) w = clamp(w, 10, 80);
-      else if (lift.title.includes("Calf Raise")) w = clamp(w, 45, 135);
-      else w = clamp(w, 45, 315);
-
-      w = Math.round(w / step) * step;
-      if (lift.title.includes("Barbell")) w = Math.max(45, w);
-
-      out.push({
-        title: lift.title,
-        sets: rand(3, 5),
-        reps: rand(repMin, repMax),
-        weight: w,
-        unit: "lb"
-      });
-    }
+// ---------- Templates ----------
+const EXS = {
+  push:["Barbell Bench Press","Overhead Press","Incline DB Press","Triceps Pushdown"],
+  pull:["Conventional Deadlift","Barbell Row","Lat Pulldown","EZ-Bar Curl","Face Pull"],
+  legs:["Back Squat","Romanian Deadlift","Leg Press","Standing Calf Raise"],
+  chest:["Barbell Bench Press","Incline DB Press","Chest Fly","Push-up (weighted)"],
+  back:["Conventional Deadlift","Barbell Row","Seated Cable Row","Lat Pulldown"],
+  shoulders:["Overhead Press","Dumbbell Lateral Raise","Rear Delt Fly","Seated DB Press"],
+  arms:["EZ-Bar Curl","Cable Curl","Triceps Pushdown","Skullcrusher"],
+};
+const MAIN_LIFT_BASE = {
+  beginner:{ bench:95, squat:135, dead:185, ohp:65, row:95 },
+  intermediate:{ bench:155, squat:225, dead:275, ohp:95, row:135 },
+  advanced:{ bench:225, squat:315, dead:405, ohp:135, row:185 },
+};
+function mainLiftForDay(t){ t=t.toLowerCase(); if(t.includes("push")||t.includes("chest"))return"bench"; if(t.includes("pull")||t.includes("back"))return"dead"; if(t.includes("legs"))return"squat"; if(t.includes("shoulder"))return"ohp"; if(t.includes("arms"))return"row"; return"bench";}
+function titleFor(program, i){ if(program==="PPL") return ["Push Day","Pull Day","Leg Day"][i%3]; const x=["Chest Day","Back Day","Leg Day","Shoulders Day"]; return x[i%x.length]; }
+function exercisesFor(title){ const k=title.toLowerCase(); if(k.includes("push"))return EXS.push; if(k.includes("pull"))return EXS.pull; if(k.includes("leg"))return EXS.legs; if(k.includes("chest"))return EXS.chest; if(k.includes("back"))return EXS.back; if(k.includes("shoulder"))return EXS.shoulders; if(k.includes("arms"))return EXS.arms; return EXS.push; }
+function makeSets(exName, tier, liftBias, weekIndex, stallChance=0.2){
+  const isMain = /bench|deadlift|squat|overhead press/i.test(exName);
+  if (isMain){
+    const base=MAIN_LIFT_BASE[tier][liftBias];
+    const bumps=Math.max(0, weekIndex - (Math.random()<stallChance?1:0));
+    const weight=Math.round((base+5*bumps)/5)*5;
+    return [{reps:5,weight},{reps:5,weight},{reps:5,weight}];
   }
-  return out;
+  const r=rndInt(8,12);
+  const baseMap={"Incline DB Press":45,"Triceps Pushdown":60,"Lat Pulldown":100,"EZ-Bar Curl":50,"Face Pull":40,"Romanian Deadlift":95,"Leg Press":180,"Standing Calf Raise":90,"Chest Fly":30,"Push-up (weighted)":25,"Seated Cable Row":100,"Dumbbell Lateral Raise":20,"Rear Delt Fly":20,"Seated DB Press":40,"Cable Curl":40,"Skullcrusher":50};
+  const b=baseMap[exName] ?? 50;
+  const weight=Math.round((b + 5*Math.floor(weekIndex/2))/5)*5;
+  return [{reps:r,weight},{reps:r,weight},{reps:r,weight}];
+}
+function sessionDoc({ author, title, when, tier, weekIndex }){
+  const liftsKey=mainLiftForDay(title);
+  let chosen=exercisesFor(title).slice(0);
+  if (chosen.length>3 && Math.random()<0.25){ chosen=chosen.slice(); chosen.splice(rndInt(1,chosen.length-1),1); }
+  const items=chosen.map(ex=>({ name:ex, sets:makeSets(ex,tier,liftsKey,weekIndex) }));
+  return { title, author, date:when, createdAt:when, exercises:items, exerciseCount:items.length, program:title.split(" ")[0].toLowerCase(), source:"seed:v2" };
 }
 
-(async function main() {
-  console.log(`🔗 Connecting…`);
-  await mongoose.connect(MONGO_URI);
-  console.log(`✅ Connected.`);
+async function wipeDomainCollections(db){
+  const names=(await db.listCollections().toArray()).map(c=>c.name);
+  const targets=names.filter(n=>/session|workout|program|routine/i.test(n));
+  let total=0;
+  for (const coll of targets){ const res=await db.collection(coll).deleteMany({}); total+=res.deletedCount||0; console.log(`🧹 ${coll}: deleted ${res.deletedCount ?? 0}`); }
+  return total;
+}
 
-  const schedules = sessionDates(START, WEEKS, PER_WEEK);
-  const people = Array.from({ length: PEOPLE }, (_, i) => ({
-    userId: `seed-${SEED_TAG}-${i + 1}`,
-    userName: names[i % names.length]
-  }));
+// ---------- Main ----------
+(async () => {
+  console.log(`Connecting to ${MONGO_URI}`);
+  await mongoose.connect(MONGO_URI, { dbName: undefined });
+  const db = mongoose.connection.db;
 
-  // Idempotent: remove prior batch with same tag
-  if (!DRY_RUN) {
-    const del = await Workout.deleteMany({ "meta.seedTag": SEED_TAG });
-    console.log(`♻️  Removed ${del.deletedCount} old workout(s) with SEED_TAG=${SEED_TAG}`);
+  if (DO_RESET){
+    console.log(" --reset supplied: wiping domain collections (sessions/workouts/programs/*).");
+    await wipeDomainCollections(db);
   }
 
-  const docs = [];
-  for (let u = 0; u < people.length; u++) {
-    const person = people[u];
-    for (let s = 0; s < schedules.length; s++) {
-      const when = schedules[s];
-      const block = daySplit[s % daySplit.length];
-      const weekIndex = Math.floor(s / Math.max(1, PER_WEEK));
+  const personas = makePersonas(PEOPLE);
+  const sessions = db.collection("sessions");
 
-      docs.push({
-        name: `${block[0].toUpperCase()}${block.slice(1)} Day`,
-        date: when,
-        visibility: "public",
-        userId: person.userId,
-        userName: person.userName,
-        exercises: buildExercises(block, weekIndex),
-        meta: { seedTag: SEED_TAG },
-        createdAt: when,
-        updatedAt: when
-      });
+  let inserted = 0;
+  for (const p of personas){
+    const end   = new Date();
+    const start = startOfWeek(addDays(end, -((WEEKS - 1) * 7)));
+    const days  = [];
+    for (let w=0; w<WEEKS; w++){
+      const weekStart = addDays(start, w*7);
+      if (p.program === "PPL"){ days.push(addDays(weekStart,0), addDays(weekStart,2), addDays(weekStart,4)); }
+      else { days.push(addDays(weekStart,0), addDays(weekStart,1), addDays(weekStart,3), addDays(weekStart,4)); }
+    }
+    const schedule = days.map(d => clampNotFuture(nyDateAtHourYmd(d.getFullYear(), d.getMonth(), d.getDate(), 13, rndInt(5,55)))).filter(d => d <= new Date());
+    for (let i=0; i<schedule.length; i++){
+      const when  = schedule[i];
+      const title = titleFor(p.program, i);
+      const doc   = sessionDoc({ author:p.name, title, when, tier:p.tier, weekIndex: Math.floor(i / (p.program==="PPL"?3:4)) });
+      await sessions.insertOne(doc);
+      inserted++;
     }
   }
 
-  if (DRY_RUN) {
-    console.log("— DRY RUN PREVIEW —");
-    console.log(JSON.stringify(docs.slice(0, 2), null, 2));
-    console.log(`Would insert ${docs.length} workout(s).`);
-  } else {
-    if (docs.length) {
-      const res = await Workout.insertMany(docs, { ordered: false });
-      console.log(`🎉 Inserted ${res.length} workout(s).`);
-    } else {
-      console.log("No workouts to insert.");
-    }
-  }
-
+  console.log(`Seeded ${inserted} session(s) across ${personas.length} persona(s).`);
   await mongoose.disconnect();
+  process.exit(0);
 })().catch(async (e) => {
-  console.error("❌ Seed failed:", e);
+  console.error("Seeding failed:", e);
   try { await mongoose.disconnect(); } catch {}
   process.exit(1);
 });
