@@ -1,22 +1,20 @@
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Node / JS
-node_modules/
-npm-debug.log*
-dist/
-coverage/
-
-# Env / secrets
 .env
-.env.local
-.env.*.local
-
-# Editors / tooling
-.vscode/
-.idea/
-*.swp
-playwright-report/
-test-results/
+.env.*
+!.env.example
+!.env.sample
+node_modules/
+dist/
+build/
+coverage/
+.cache/
+.next/
+.vite/
+.DS_Store
+*.log
+snapshots/
+build-area/
+index.js
+commit-messages.json
+*.sqlite
+*.db
+dump*/

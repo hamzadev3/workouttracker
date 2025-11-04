@@ -1,3 +1,5 @@
+// Minimal Firebase Auth provider for { user, login, signup, logout }
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "./firebase";

@@ -8,13 +8,7 @@ import Spinner         from "./components/Spinner";
 import { useAuth }     from "./AuthContext";
 import toast           from "react-hot-toast";
 
-/**
- * App
- * Top-level page shell. Handles:
- * - switching tabs (Community vs My Workouts)
- * - loading sessions for current tab
- * - opening modals (auth, new session, session detail)
- */
+// App shell: tabs (Community/Mine), load sessions, and modals
 
 // Lightweight demo filler when browsing as guest
 const demoSessions = [

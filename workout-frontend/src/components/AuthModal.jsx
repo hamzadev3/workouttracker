@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../AuthContext";
 
-/**
- * AuthModal
- * Small email/password auth dialog for sign-in & sign-up.
- * Props:
- *  - onClose?: () => void  // close the modal after success or cancel
- */
+// Email/password sign in & sign up modal
 
 // user friendly error messages
 const MSG = {

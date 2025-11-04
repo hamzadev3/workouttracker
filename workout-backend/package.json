@@ -6,7 +6,8 @@
     "test": "NODE_ENV=test jest -i",
     "start": "node server.js",
     "seed": "node scripts/seed.js",
-    "seed:clear": "node scripts/clear.js"
+    "seed:clear": "node scripts/clear.js",
+    "wipe": "node scripts/wipe.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
