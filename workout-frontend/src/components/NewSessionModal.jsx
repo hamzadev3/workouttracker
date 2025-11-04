@@ -2,13 +2,7 @@ import { useState } from "react";
 import { createSession } from "../api";
 import toast from "react-hot-toast";
 
-/**
- * NewSessionModal
- * Creates a new workout session via API.
- * Props:
- *  - onCreate: (session) => void  // optimistic list update in parent
- *  - onClose:  () => void         // close modal
- */
+// Modal to create a new session; calls onCreate() on success
 
 export default function NewSessionModal({ onCreate, onClose }) {
   // Keep inputs controlled; default public to encourage community sharing.
