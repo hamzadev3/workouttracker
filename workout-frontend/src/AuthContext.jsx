@@ -17,17 +17,17 @@ export function AuthProvider({ children }) {
   const [loading, setL] = useState(true);
 
   useEffect(() =>
-    // Subscribe once and update user + local storage for legacy checks.
-    onAuthStateChanged(auth, (u) => { setUser(u); localStorage.uid = u ? u.uid : ""; setL(false); }), 
+    // Subscribe once; Firebase calls this whenever the user signs in or out.
+    onAuthStateChanged(auth, (u) => { setUser(u); setL(false); }),
     []
   );
 
   const value = {
     user,
     // Thin wrappers keep callsites tidy; errors bubble to caller.
-    login:  (e, p) => signInWithEmailAndPassword(auth, e, p),
+    login: (e, p) => signInWithEmailAndPassword(auth, e, p),
     signup: (e, p) => createUserWithEmailAndPassword(auth, e, p),
-    logout: ()     => signOut(auth),
+    logout: () => signOut(auth),
   };
 
   return <AuthCtx.Provider value={value}>{loading ? null : children}</AuthCtx.Provider>;
